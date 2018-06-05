@@ -143,6 +143,7 @@ static void
 ghostify(cPersistentObject *self)
 {
   PyObject **dictptr, *slotnames;
+  PyObject *errtype, *errvalue, *errtb;
 
   /* are we already a ghost? */
   if (self->state == cPersistent_GHOST_STATE)
@@ -181,6 +182,12 @@ ghostify(cPersistentObject *self)
       *dictptr = NULL;
     }
 
+  /* later we might clear an AttributeError but
+   * if we have a pending exception that still needs to be
+   * raised so that we don't generate a SystemError.
+   */
+  PyErr_Fetch(&errtype, &errvalue, &errtb);
+
   /* clear all slots besides _p_* */
   slotnames = pickle_slotnames(Py_TYPE(self));
   if (slotnames && slotnames != Py_None)
@@ -212,6 +219,7 @@ ghostify(cPersistentObject *self)
     }
   }
   Py_XDECREF(slotnames);
+  PyErr_Restore(errtype, errvalue, errtb);
 
   /* We remove the reference to the just ghosted object that the ring
    * holds.  Note that the dictionary of oids->objects has an uncounted
